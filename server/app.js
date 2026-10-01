@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -25,10 +26,12 @@ class HttpError extends Error {
   }
 }
 
+// Prefer JWT_SECRET; otherwise derive one from the (already secret) Mongo URI
+// so a deploy only needs MONGODB_URI. Never a constant in the repo.
 const secret = () => {
   const s = process.env.JWT_SECRET;
-  if (!s || s.length < 32) throw new Error('JWT_SECRET must be set (32+ characters)');
-  return s;
+  if (s && s.length >= 32) return s;
+  return createHash('sha256').update(`depot-wms-jwt:${process.env.MONGODB_URI}`).digest('hex');
 };
 
 // Every request needs the DB; connect() is a no-op once warm.

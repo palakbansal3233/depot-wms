@@ -1221,6 +1221,29 @@ a.kpi:hover {
   text-transform: uppercase;
   color: var(--ink-2);
 }
+.password-field {
+  position: relative;
+}
+.password-field .input {
+  padding-right: 48px;
+}
+.reveal {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.reveal:hover {
+  color: var(--ink);
+}
 .form-error {
   margin-top: 14px;
 }
