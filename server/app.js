@@ -46,7 +46,7 @@ app.get('/api/health', async (_req, res) => {
     await connect();
     res.json({ ok: true, db: 'connected', config });
   } catch (err) {
-    const reason = String(err.codeName || err.reason?.type || err.message || '').replace(/mongodb(\+srv)?:\/\/\S+/g, '<uri>');
+    const reason = [err.codeName || err.reason?.type, err.message].filter(Boolean).join(': ').replace(/mongodb(\+srv)?:\/\/\S+/g, '<uri>');
     res.status(503).json({ ok: false, db: err.name, reason: reason.slice(0, 200), config });
   }
 });
