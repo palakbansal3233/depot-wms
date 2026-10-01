@@ -34,13 +34,28 @@ const secret = () => {
   return createHash('sha256').update(`depot-wms-jwt:${process.env.MONGODB_URI}`).digest('hex');
 };
 
+// Deploy diagnostics: says which config is missing and why the DB connection
+// fails (error class + Mongo's reason), without echoing any secret values.
+app.get('/api/health', async (_req, res) => {
+  const config = {
+    MONGODB_URI: Boolean(process.env.MONGODB_URI),
+    ADMIN_USERNAME: Boolean(process.env.ADMIN_USERNAME),
+    ADMIN_PASSWORD: Boolean(process.env.ADMIN_PASSWORD),
+  };
+  try {
+    await connect();
+    res.json({ ok: true, db: 'connected', config });
+  } catch (err) {
+    const reason = String(err.codeName || err.reason?.type || err.message || '').replace(/mongodb(\+srv)?:\/\/\S+/g, '<uri>');
+    res.status(503).json({ ok: false, db: err.name, reason: reason.slice(0, 200), config });
+  }
+});
+
 // Every request needs the DB; connect() is a no-op once warm.
 app.use('/api', async (_req, _res, next) => {
   await connect();
   next();
 });
-
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // ── Auth ─────────────────────────────────────────────────────────
 app.post('/api/auth/login', async (req, res) => {
