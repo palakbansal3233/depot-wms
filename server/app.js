@@ -34,6 +34,24 @@ const secret = () => {
   return createHash('sha256').update(`depot-wms-jwt:${process.env.MONGODB_URI}`).digest('hex');
 };
 
+// Yes/no checks for the usual connection-string mistakes. Never returns any part of the URI.
+function uriChecks(uri = '') {
+  const scheme = /^mongodb(\+srv)?:\/\//.exec(uri);
+  const rest = scheme ? uri.slice(scheme[0].length) : '';
+  const at = rest.lastIndexOf('@');
+  const creds = at > -1 ? rest.slice(0, at) : '';
+  const password = creds.includes(':') ? creds.slice(creds.indexOf(':') + 1) : '';
+  const path = at > -1 ? rest.slice(at + 1).split('?')[0] : '';
+  return {
+    startsWithMongodbScheme: Boolean(scheme),
+    hasSurroundingQuotesOrSpaces: /^["'\s]|["'\s]$/.test(uri),
+    hasCredentials: Boolean(password),
+    passwordStillPlaceholder: /<.*>|db_password/i.test(password),
+    passwordHasUnencodedSpecialChars: /[@:/?#[\]\s]/.test(password),
+    hasDatabaseName: /\/[^/]+$/.test(path),
+  };
+}
+
 // Deploy diagnostics: says which config is missing and why the DB connection
 // fails (error class + Mongo's reason), without echoing any secret values.
 app.get('/api/health', async (_req, res) => {
@@ -47,7 +65,7 @@ app.get('/api/health', async (_req, res) => {
     res.json({ ok: true, db: 'connected', config });
   } catch (err) {
     const reason = [err.codeName || err.reason?.type, err.message].filter(Boolean).join(': ').replace(/mongodb(\+srv)?:\/\/\S+/g, '<uri>');
-    res.status(503).json({ ok: false, db: err.name, reason: reason.slice(0, 200), config });
+    res.status(503).json({ ok: false, db: err.name, reason: reason.slice(0, 200), config, uriChecks: uriChecks(process.env.MONGODB_URI) });
   }
 });
 
