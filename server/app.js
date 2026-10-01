@@ -52,6 +52,18 @@ function uriChecks(uri = '') {
   };
 }
 
+// Yes/no checks on whether the env login is the one stored in the database.
+async function loginChecks() {
+  const { ADMIN_USERNAME: name = '', ADMIN_PASSWORD: pass = '' } = process.env;
+  const stored = name ? await User.findOne({ username: name.toLowerCase().trim() }) : null;
+  return {
+    usersInDatabase: await User.countDocuments(),
+    envUserExists: Boolean(stored),
+    envPasswordMatches: stored ? await bcrypt.compare(pass, stored.passwordHash) : false,
+    envValuesHaveQuotesOrSpaces: /^["'\s]|["'\s]$/.test(name) || /^["'\s]|["'\s]$/.test(pass),
+  };
+}
+
 // Deploy diagnostics: says which config is missing and why the DB connection
 // fails (error class + Mongo's reason), without echoing any secret values.
 app.get('/api/health', async (_req, res) => {
@@ -62,7 +74,7 @@ app.get('/api/health', async (_req, res) => {
   };
   try {
     await connect();
-    res.json({ ok: true, db: 'connected', config });
+    res.json({ ok: true, db: 'connected', config, login: await loginChecks() });
   } catch (err) {
     const reason = [err.codeName || err.reason?.type, err.message].filter(Boolean).join(': ').replace(/mongodb(\+srv)?:\/\/\S+/g, '<uri>');
     res.status(503).json({ ok: false, db: err.name, reason: reason.slice(0, 200), config, uriChecks: uriChecks(process.env.MONGODB_URI) });
